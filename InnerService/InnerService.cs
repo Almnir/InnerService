@@ -1,103 +1,85 @@
-﻿using System;
-using System.Diagnostics;
-using System.ServiceProcess;
+﻿using System.ServiceProcess;
+using System.Threading;
 
 namespace InnerService
 {
     class InnerService : ServiceBase
     {
+        // Интервал работы сервиса
+        const int INTERVAL = 1000 * 60 * 40;
+        // токен отмены
+        CancellationToken token;
+        // сигнал токена отмены
+        CancellationTokenSource cancelTokenSource;
+
+        /// <summary>
+        /// Конструктор сервиса
+        /// </summary>
         public InnerService()
         {
+            // название сервиса
             this.ServiceName = "Inner Service";
+            // уровень логирования
             this.EventLog.Log = "Application";
 
+            // флаги возможностей сервиса
             this.CanHandlePowerEvent = false;
             this.CanHandleSessionChangeEvent = false;
-            this.CanPauseAndContinue = true;
+            this.CanPauseAndContinue = false;
             this.CanShutdown = true;
             this.CanStop = true;
+
+            // инициализация токена
+            cancelTokenSource = new CancellationTokenSource();
+            token = cancelTokenSource.Token;
         }
 
+        /// <summary>
+        /// Точка входа для запуска сервиса
+        /// </summary>
         static void Main()
         {
             ServiceBase.Run(new InnerService());
         }
 
+        /// <summary>
+        /// Деструктор(финализатор) сервиса
+        /// </summary>
+        /// <param name="disposing"></param>
         protected override void Dispose(bool disposing)
         {
             base.Dispose(disposing);
         }
 
+        /// <summary>
+        /// Обработчик старта сервиса
+        /// </summary>
+        /// <param name="args"></param>
         protected override void OnStart(string[] args)
         {
             base.OnStart(args);
-            
+            // создать новую задачу с повторением(да) и интервалом повторения(INTERVAL)
+            ProcessJob processJob = new ProcessJob(true, INTERVAL);
+            // новый поток выполнения задачи
+            Thread thread = new Thread(new ParameterizedThreadStart(processJob.ExecuteJob));
+            // запуск нового потока с передачей токена отмены
+            thread.Start(token);
         }
 
+        /// <summary>
+        /// Обработчик останова сервиса
+        /// </summary>
         protected override void OnStop()
         {
             base.OnStop();
         }
 
-        protected override void OnPause()
-        {
-            base.OnPause();
-        }
-
-        protected override void OnContinue()
-        {
-            base.OnContinue();
-        }
-
+        /// <summary>
+        /// Обработчик завершения сервиса
+        /// </summary>
         protected override void OnShutdown()
         {
             base.OnShutdown();
-        }
-
-        /// <summary>
-        /// OnCustomCommand(): If you need to send a command to your
-        ///   service without the need for Remoting or Sockets, use
-        ///   this method to do custom methods.
-        /// </summary>
-        /// <param name="command">Arbitrary Integer between 128 & 256</param>
-        protected override void OnCustomCommand(int command)
-        {
-            //  A custom command can be sent to a service by using this method:
-            //#  int command = 128; //Some Arbitrary number between 128 & 256
-            //#  ServiceController sc = new ServiceController("NameOfService");
-            //#  sc.ExecuteCommand(command);
-
-            base.OnCustomCommand(command);
-        }
-
-        protected override bool OnPowerEvent(PowerBroadcastStatus powerStatus)
-        {
-            return base.OnPowerEvent(powerStatus);
-        }
-
-        /// <summary>
-        /// OnSessionChange(): To handle a change event
-        ///   from a Terminal Server session.
-        ///   Useful if you need to determine
-        ///   when a user logs in remotely or logs off,
-        ///   or when someone logs into the console.
-        /// </summary>
-        /// <param name="changeDescription">The Session Change
-        /// Event that occured.</param>
-        protected override void OnSessionChange(
-                  SessionChangeDescription changeDescription)
-        {
-            base.OnSessionChange(changeDescription);
-        }
-
-        private void LogEvent(string message)
-        {
-            string eventSource = "File Monitor and Send Service";
-            DateTime dt = new DateTime();
-            dt = System.DateTime.UtcNow;
-            message = dt.ToLocalTime() + ": " + message;
-
-            EventLog.WriteEntry(eventSource, message);
         }
     }
 }
