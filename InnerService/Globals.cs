@@ -11,5 +11,7 @@
         {
             return string.Format("Server={0};Database={1};User Id={2};Password={3};", ServerText, DatabaseText, LoginText, PasswordText);
         }
+
+        public static string TempFilePath;
     }
 }
