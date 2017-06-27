@@ -1,4 +1,7 @@
-﻿namespace InnerService
+﻿using System;
+using System.IO;
+
+namespace InnerService
 {
     /// <summary>
     /// Класс реализации задачи процессинга
@@ -20,7 +23,7 @@
         /// <returns></returns>
         public override string JobName()
         {
-            return "Задача сбора и выгрузки данных рассадок";
+            return "Задача сбора и выгрузки данных";
         }
 
         /// <summary>
@@ -31,8 +34,21 @@
             // если соединение с БД есть
             if (DatabaseHelper.CheckConnection())
             {
-                string xmldata = DatabaseExport.GetXML();
-
+                // выгрузка в файл во временный каталог
+                DatabaseHelper.WriteXML();
+                // получение доступа к разделяемому каталогу удалённого сервера открытой сети
+                using (NetworkShareAccesser.Access(Globals.RemoteServer, Globals.DomainName, Globals.UserName, Globals.Password))
+                {
+                    try
+                    {
+                        // копирование файла с данными управления видеонаблюдением на сервер открытой сети с перезаписью
+                        File.Copy(Globals.GetTempFilePath(), @"\\OPENSERVER\Shared\auditoriums.xml", true);
+                    }
+                    catch (Exception)
+                    {
+                        ServiceHelper.LogEvent("Ошибка при копировании файла auditoriums.xml!");
+                    }
+                }
             }
             // если нет соединения с БД
             else
